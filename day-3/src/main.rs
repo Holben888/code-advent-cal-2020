@@ -73,7 +73,7 @@ fn count_trees(tree_rows: Enumerate<Lines<BufReader<File>>>) -> u32 {
 }
 
 fn main() {
-    let tree_rows = read_lines("day-3/treees.txt");
+    let tree_rows = read_lines("treees.txt");
     let multiplier = match tree_rows {
         Ok(tree_rows) => count_trees(tree_rows.enumerate()),
         Err(_) => {

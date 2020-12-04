@@ -1,5 +1,5 @@
 [package]
-name = "code-advent-2020-rust"
+name = "day-3"
 version = "0.1.0"
 authors = ["Holben888 <bholmesdev@gmail.com>"]
 edition = "2018"
