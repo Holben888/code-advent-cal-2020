@@ -9,13 +9,12 @@ fn format_groups_flattened(input_file: &str) -> Vec<String> {
         .collect()
 }
 
-fn format_groups(input_file: &str) -> Vec<Vec<String>> {
+fn format_groups(input_file: &str) -> Vec<Vec<&str>> {
     input_file
         .split("\n\n") // split up the groups
         .map(|group| {
             group
                 .split('\n') // create vec of individual answers
-                .map(|person| person.to_string()) // allocate string
                 .collect()
         })
         .collect()
@@ -31,7 +30,7 @@ fn count_unique_answers(group_answers: &str) -> u32 {
         .len() as u32
 }
 
-fn count_unanimous_answers(group_answers: &Vec<String>) -> u32 {
+fn count_unanimous_answers(group_answers: &Vec<&str>) -> u32 {
     if group_answers.len() == 0 {
         0
     } else {
