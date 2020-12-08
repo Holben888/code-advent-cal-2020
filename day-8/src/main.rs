@@ -26,11 +26,15 @@ fn to_operation(raw_instruction: regex::Captures) -> OP {
     }
 }
 
-fn safely_change_index(index: u32, change: i64) -> u32 {
+fn jump_index(index: u32, change: i64) -> u32 {
     match change + index as i64 {
         index if index >= 0 => index as u32,
         _ => 0,
     }
+}
+
+fn nop_index(index: u32) -> u32 {
+    index + 1
 }
 
 fn accumulate_from_instructions(
@@ -43,8 +47,12 @@ fn accumulate_from_instructions(
 
     loop {
         if let Some(_) = visited_instruction_graph.get(&index) {
+            // if we've already been here before, it's an infinite loop!
+            // break out with the index we looped back to
             break (acc, Some(index), visited_instruction_graph);
         } else if index >= instructions.len() as u32 {
+            // if we exceed the length of the array, then we terminated successfully!
+            // break out with the final acc value
             break (acc, None, visited_instruction_graph);
         } else {
             let next_index = match instructions[index as usize] {
@@ -53,12 +61,15 @@ fn accumulate_from_instructions(
                     index + 1
                 }
                 OP::Jmp(num) => match swap_op_index {
-                    Some(swap_index) if swap_index == index => index + 1,
-                    _ => safely_change_index(index, num),
+                    // if we're attempting to "swap" a faulty instruction,
+                    // switch to the nop behavior for this one
+                    Some(swap_index) if swap_index == index => nop_index(index),
+                    _ => jump_index(index, num),
                 },
                 OP::Nop(num) => match swap_op_index {
-                    Some(swap_index) if swap_index == index => safely_change_index(index, num),
-                    _ => index + 1,
+                    // vice versa for this faulty instruction
+                    Some(swap_index) if swap_index == index => jump_index(index, num),
+                    _ => nop_index(index),
                 },
             };
             visited_instruction_graph.insert(index, next_index);
@@ -67,24 +78,33 @@ fn accumulate_from_instructions(
     }
 }
 
+fn get_possibly_broken_instructions(
+    visited_instruction_graph: &HashMap<u32, u32>,
+    initial_index: u32,
+) -> Vec<u32> {
+    let mut index = initial_index;
+    let mut possibly_broken_instructions: Vec<u32> = Vec::new();
+    loop {
+        let next_index = *visited_instruction_graph.get(&index).unwrap();
+        possibly_broken_instructions.push(index);
+        if next_index == initial_index {
+            break; // we've closed the loop!
+        } else {
+            index = next_index;
+        }
+    }
+    possibly_broken_instructions
+}
+
 fn accumulate_and_fix_broken_instruction(instructions: &Vec<OP>) -> i64 {
     let (acc, finished_early_at_index, visited_instruction_graph) =
         accumulate_from_instructions(instructions, None);
     match finished_early_at_index {
+        // if we didn't finish early, we got it right the first try
+        None => acc,
         Some(initial_index) => {
-            // generate graph
-            let mut index = initial_index;
-            let mut possibly_broken_instructions: Vec<u32> = Vec::new();
-            loop {
-                let next_index = *visited_instruction_graph.get(&index).unwrap();
-                possibly_broken_instructions.push(index);
-                if next_index == initial_index {
-                    break; // we've closed the loop!
-                } else {
-                    index = next_index;
-                }
-            }
-
+            let possibly_broken_instructions =
+                get_possibly_broken_instructions(&visited_instruction_graph, initial_index);
             let mut index = 0;
             loop {
                 let instruction_index = possibly_broken_instructions[index];
@@ -106,7 +126,6 @@ fn accumulate_and_fix_broken_instruction(instructions: &Vec<OP>) -> i64 {
                 index += 1;
             }
         }
-        None => acc,
     }
 }
 
