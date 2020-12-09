@@ -49,8 +49,12 @@ fn main() {
                             let color = &bag_info_capture[2];
 
                             bag_to_parents_map
+                                // find the right bag in our Map
                                 .entry(color.to_string())
+                                // if we can't find it,
+                                // create the key with an empty Set as our value
                                 .or_insert(HashSet::new())
+                                // otherwise, append to the existing Set at that key
                                 .insert(first_bag_color.to_string());
                         }
                     }

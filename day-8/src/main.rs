@@ -17,6 +17,7 @@ fn to_int(value: &str) -> i64 {
 }
 
 fn to_operation(raw_instruction: regex::Captures) -> OP {
+    // ex: map "acc +1" -> OP::Acc
     let op_type = &raw_instruction[1];
     let num = to_int(&raw_instruction[2]);
     match op_type {
@@ -136,7 +137,9 @@ fn main() {
     match raw_input {
         Ok(raw_input) => {
             let instructions: Vec<OP> = read_instructions
+                // get all the capture groups we found
                 .captures_iter(&raw_input)
+                // map each group to a shiny enum we can work with
                 .map(|instruction| to_operation(instruction))
                 .collect();
 
