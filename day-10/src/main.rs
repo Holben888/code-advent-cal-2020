@@ -38,41 +38,6 @@ fn map_to_counts(seats: &Vec<SEAT>) -> HashMap<SEAT, u32> {
     })
 }
 
-fn find_adj_seat_counts(
-    seating_chart: &Vec<Vec<SEAT>>,
-    row: usize,
-    seat: usize,
-) -> HashMap<SEAT, u32> {
-    let mut adj_seats: Vec<SEAT> = Vec::new();
-    let row_len = seating_chart[0].len() - 1;
-    let chart_len = seating_chart.len() - 1;
-    if row > 0 {
-        adj_seats.push(seating_chart[row - 1][seat]);
-        if seat > 0 {
-            adj_seats.push(seating_chart[row - 1][seat - 1]);
-        };
-        if seat < row_len {
-            adj_seats.push(seating_chart[row - 1][seat + 1]);
-        };
-    };
-    if row < chart_len {
-        adj_seats.push(seating_chart[row + 1][seat]);
-        if seat > 0 {
-            adj_seats.push(seating_chart[row + 1][seat - 1]);
-        };
-        if seat < row_len {
-            adj_seats.push(seating_chart[row + 1][seat + 1]);
-        };
-    };
-    if seat > 0 {
-        adj_seats.push(seating_chart[row][seat - 1]);
-    };
-    if seat < row_len {
-        adj_seats.push(seating_chart[row][seat + 1]);
-    };
-    map_to_counts(&adj_seats)
-}
-
 fn get_nearest_seat_in_direction(
     seating_chart: &Vec<Vec<SEAT>>,
     row: usize,
@@ -89,6 +54,7 @@ fn get_nearest_seat_in_direction(
         nearest_seat += direction.1;
         if nearest_row < 0 || nearest_row > chart_len || nearest_seat < 0 || nearest_seat > row_len
         {
+            // if we went out-of-bounds, we clearly couldn't find a seat
             break None;
         }
         let seat = seating_chart[nearest_row as usize][nearest_seat as usize];
@@ -102,6 +68,10 @@ fn find_directional_seat_counts(
     seating_chart: &Vec<Vec<SEAT>>,
     row: usize,
     seat: usize,
+    // 👇 depends on whether you're doing part 1 or part 2!
+    // - if part 1, you want to *always* find the adjacent seat, even if it's the floor
+    // - if part 2, you want to find the first seat that *isn't* the floor
+    // (so not necessarily the adjacent)
     take_adjacent: bool,
 ) -> HashMap<SEAT, u32> {
     let nearest_seats: Vec<SEAT> = DIRECTIONS
@@ -123,9 +93,9 @@ fn decide_seating(seating_chart: &Vec<Vec<SEAT>>) -> Vec<Vec<SEAT>> {
         for (seat_index, seat) in row.iter().enumerate() {
             let revised_seat = match seat {
                 SEAT::Occ => {
-                    let adj_seat_count =
+                    let nearby_seat_counts =
                         find_directional_seat_counts(seating_chart, row_index, seat_index, true);
-                    match adj_seat_count.get(&SEAT::Occ) {
+                    match nearby_seat_counts.get(&SEAT::Occ) {
                         Some(count) if *count >= 4 => {
                             something_was_revised = true;
                             SEAT::Empty
@@ -134,9 +104,10 @@ fn decide_seating(seating_chart: &Vec<Vec<SEAT>>) -> Vec<Vec<SEAT>> {
                     }
                 }
                 SEAT::Empty => {
-                    let adj_seat_count =
+                    let nearby_seat_counts =
                         find_directional_seat_counts(seating_chart, row_index, seat_index, true);
-                    match adj_seat_count.get(&SEAT::Occ) {
+                    match nearby_seat_counts.get(&SEAT::Occ) {
+                        // if we couldn't find a count for occupied seats... there aren't any!
                         None => {
                             something_was_revised = true;
                             SEAT::Occ
@@ -149,6 +120,7 @@ fn decide_seating(seating_chart: &Vec<Vec<SEAT>>) -> Vec<Vec<SEAT>> {
             revised_seating[row_index].push(revised_seat);
         }
     }
+    // if we had to change something this round, we need to process again
     if something_was_revised {
         decide_seating(&revised_seating)
     } else {
@@ -165,7 +137,7 @@ fn main() {
                 .map(|row| row.chars().map(|c| to_seat(c)).collect())
                 .collect();
 
-            // println!("{:?}", seating_chart);
+            // flatten our seating chart to count all the occupied seats
             let occ_count = decide_seating(&seating_chart).iter().flatten().fold(
                 0 as u32,
                 |occ_count, seat| match seat {
