@@ -77,6 +77,8 @@ fn process_part_1(nav_instructions: &Vec<Nav>) -> (Loc, Direction) {
         .iter()
         .fold((Loc(0, 0), Direction::E), |(loc, dir), nav_instruction| {
             (
+                // for "forward" instructions, we need to check
+                // what direction we're currently facing
                 match (nav_instruction, dir) {
                     (Nav::N(distance), _) | (Nav::F(distance), Direction::N) => {
                         Loc(loc.0, loc.1 + *distance as i64)
