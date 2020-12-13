@@ -8,7 +8,7 @@ fn to_int(value: &str) -> u32 {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug)]
 enum Nav {
     N(u32),
     S(u32),
@@ -19,7 +19,7 @@ enum Nav {
     F(u32),
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum Direction {
     N = 0,
     E = 1,
@@ -27,10 +27,8 @@ enum Direction {
     W = 3,
 }
 
-struct Position {
-    location: (i64, i64),
-    direction: Direction,
-}
+struct Loc(i64, i64);
+struct Waypoint(i64, i64);
 
 fn to_nav_instruction(raw_instruction: regex::Captures) -> Nav {
     let instr = &raw_instruction[1];
@@ -46,18 +44,91 @@ fn to_nav_instruction(raw_instruction: regex::Captures) -> Nav {
     }
 }
 
-fn rotate_by_degrees(degrees: u32, curr_direction: Direction, counterclockwise: bool) -> Direction {
+fn rotate_direction(degrees: u32, direction: Direction, counterclockwise: bool) -> Direction {
     let degrees = if counterclockwise {
         (degrees as i64 * -1).into()
     } else {
         degrees as i64
     };
-    match (degrees + 90 * curr_direction as i64) % 360 {
+    match (degrees + 90 * direction as i64) % 360 {
         90 | -270 => Direction::E,
         180 | -180 => Direction::S,
         270 | -90 => Direction::W,
         _ => Direction::N,
     }
+}
+
+fn rotate_waypoint(degrees: u32, waypoint: Waypoint, counterclockwise: bool) -> Waypoint {
+    let degrees = if counterclockwise {
+        (degrees as i64 * -1).into()
+    } else {
+        degrees as i64
+    };
+    match degrees % 360 {
+        90 | -270 => Waypoint(waypoint.1, -waypoint.0),
+        180 | -180 => Waypoint(-waypoint.0, -waypoint.1),
+        270 | -90 => Waypoint(-waypoint.1, waypoint.0),
+        _ => waypoint,
+    }
+}
+
+fn process_part_1(nav_instructions: &Vec<Nav>) -> (Loc, Direction) {
+    nav_instructions
+        .iter()
+        .fold((Loc(0, 0), Direction::E), |(loc, dir), nav_instruction| {
+            (
+                match (nav_instruction, dir) {
+                    (Nav::N(distance), _) | (Nav::F(distance), Direction::N) => {
+                        Loc(loc.0, loc.1 + *distance as i64)
+                    }
+                    (Nav::S(distance), _) | (Nav::F(distance), Direction::S) => {
+                        Loc(loc.0, loc.1 - *distance as i64)
+                    }
+                    (Nav::E(distance), _) | (Nav::F(distance), Direction::E) => {
+                        Loc(loc.0 + *distance as i64, loc.1)
+                    }
+                    (Nav::W(distance), _) | (Nav::F(distance), Direction::W) => {
+                        Loc(loc.0 - *distance as i64, loc.1)
+                    }
+                    _ => loc,
+                },
+                match nav_instruction {
+                    Nav::L(degrees) => rotate_direction(*degrees, dir, true),
+                    Nav::R(degrees) => rotate_direction(*degrees, dir, false),
+                    _ => dir,
+                },
+            )
+        })
+}
+
+fn process_part_2(nav_instructions: &Vec<Nav>) -> (Loc, Waypoint) {
+    nav_instructions.iter().fold(
+        (Loc(0, 0), Waypoint(10, 1)),
+        |(loc, waypoint), nav_instruction| {
+            (
+                match nav_instruction {
+                    Nav::F(multiplier) => Loc(
+                        loc.0 + waypoint.0 * *multiplier as i64,
+                        loc.1 + waypoint.1 * *multiplier as i64,
+                    ),
+                    _ => loc,
+                },
+                match nav_instruction {
+                    Nav::L(degrees) => rotate_waypoint(*degrees, waypoint, true),
+                    Nav::R(degrees) => rotate_waypoint(*degrees, waypoint, false),
+                    Nav::N(distance) => Waypoint(waypoint.0, waypoint.1 + *distance as i64),
+                    Nav::S(distance) => Waypoint(waypoint.0, waypoint.1 - *distance as i64),
+                    Nav::E(distance) => Waypoint(waypoint.0 + *distance as i64, waypoint.1),
+                    Nav::W(distance) => Waypoint(waypoint.0 - *distance as i64, waypoint.1),
+                    _ => waypoint,
+                },
+            )
+        },
+    )
+}
+
+fn calc_manhattan_distance(loc: &Loc) -> u32 {
+    (loc.0.abs() + loc.1.abs()) as u32
 }
 
 fn main() {
@@ -70,46 +141,15 @@ fn main() {
                 .map(|capture| to_nav_instruction(capture))
                 .collect();
 
-            let position = nav_instructions.iter().fold(
-                Position {
-                    direction: Direction::E,
-                    location: (0, 0),
-                },
-                |curr_position, nav_instruction| {
-                    let (horiz, vert) = curr_position.location;
-                    Position {
-                        direction: match nav_instruction {
-                            Nav::L(degrees) => {
-                                rotate_by_degrees(*degrees, curr_position.direction, true)
-                            }
-                            Nav::R(degrees) => {
-                                rotate_by_degrees(*degrees, curr_position.direction, false)
-                            }
-                            _ => curr_position.direction,
-                        },
-                        location: match (nav_instruction, curr_position.direction) {
-                            (Nav::N(distance), _) | (Nav::F(distance), Direction::N) => {
-                                (horiz, vert + *distance as i64)
-                            }
-                            (Nav::S(distance), _) | (Nav::F(distance), Direction::S) => {
-                                (horiz, vert - *distance as i64)
-                            }
-                            (Nav::E(distance), _) | (Nav::F(distance), Direction::E) => {
-                                (horiz + *distance as i64, vert)
-                            }
-                            (Nav::W(distance), _) | (Nav::F(distance), Direction::W) => {
-                                (horiz - *distance as i64, vert)
-                            }
-                            _ => (horiz, vert),
-                        },
-                    }
-                },
-            );
+            let (part_1_pos, _) = process_part_1(&nav_instructions);
+            let (part_2_pos, _) = process_part_2(&nav_instructions);
 
             println!(
-                "{:?} {:?}",
-                position.location.0.abs() + position.location.1.abs(),
-                position.direction
+                "Here's the Manhattan distances we found: \n\
+                1. Based on directions: {} \n\
+                2. Based on waypoints: {}",
+                calc_manhattan_distance(&part_1_pos),
+                calc_manhattan_distance(&part_2_pos),
             );
         }
         Err(_) => println!("There's something wrong with the input file!"),
